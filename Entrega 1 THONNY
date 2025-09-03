@@ -8,36 +8,34 @@ import time
 import random
 import sys
 
-# COMPONENTES
-
 # LEDs
-led1 = Pin(26, Pin.OUT)    # LED 1 en GPIO26
-led2 = Pin(23, Pin.OUT)    # LED 2 en GPIO23  
-led3 = Pin(22, Pin.OUT)    # LED 3 en GPIO22
+led1 = Pin(23, Pin.OUT)    # LED 1 en GPIO26
+led2 = Pin(22, Pin.OUT)    # LED 2 en GPIO23  
+led3 = Pin(21, Pin.OUT)    # LED 3 en GPIO22
 leds = [led1, led2, led3]
 
 # Buzzer (usando PWM)
-buzzer = PWM(Pin(2))
+buzzer = PWM(Pin(19))
 buzzer.duty(0)
 
 # Botones Jugador 1
-btn_led1_p1 = Pin(13, Pin.IN, Pin.PULL_DOWN)  # Para LED1
-btn_led2_p1 = Pin(12, Pin.IN, Pin.PULL_DOWN)  # Para LED2
-btn_led3_p1 = Pin(14, Pin.IN, Pin.PULL_DOWN)  # Para LED3
-btn_buzzer_p1 = Pin(27, Pin.IN, Pin.PULL_DOWN)  # Para Buzzer
+btn_led1_p1 = Pin(25, Pin.IN, Pin.PULL_DOWN)  # Para LED1
+btn_led2_p1 = Pin(26, Pin.IN, Pin.PULL_DOWN)  # Para LED2
+btn_led3_p1 = Pin(27, Pin.IN, Pin.PULL_DOWN)  # Para LED3
+btn_buzzer_p1 = Pin(14, Pin.IN, Pin.PULL_DOWN)  # Para Buzzer
 botones_jugador1 = [btn_led1_p1, btn_led2_p1, btn_led3_p1, btn_buzzer_p1]
 
 # Botones Jugador 2
-btn_led1_p2 = Pin(21, Pin.IN, Pin.PULL_DOWN)  # Para LED1
-btn_led2_p2 = Pin(19, Pin.IN, Pin.PULL_DOWN)  # Para LED2
-btn_led3_p2 = Pin(18, Pin.IN, Pin.PULL_DOWN)  # Para LED3
-btn_buzzer_p2 = Pin(5, Pin.IN, Pin.PULL_DOWN)   # Para Buzzer
+btn_led1_p2 = Pin(34, Pin.IN, Pin.PULL_DOWN)  # Para LED1
+btn_led2_p2 = Pin(35, Pin.IN, Pin.PULL_DOWN)  # Para LED2
+btn_led3_p2 = Pin(32, Pin.IN, Pin.PULL_DOWN)  # Para LED3
+btn_buzzer_p2 = Pin(33, Pin.IN, Pin.PULL_DOWN)   # Para Buzzer
 botones_jugador2 = [btn_led1_p2, btn_led2_p2, btn_led3_p2, btn_buzzer_p2]
 
 # Botones extras
-boton_inicio = Pin(17, Pin.IN, Pin.PULL_DOWN)
-boton_fin = Pin(16, Pin.IN, Pin.PULL_DOWN)
-boton_fest = Pin(4, Pin.IN, Pin.PULL_DOWN)
+boton_inicio = Pin(12, Pin.IN, Pin.PULL_DOWN)
+boton_fin = Pin(13, Pin.IN, Pin.PULL_DOWN)
+boton_fest = Pin(16, Pin.IN, Pin.PULL_DOWN)
 
 # ESTADO
 puntuacion_p1 = 0
@@ -434,6 +432,7 @@ def mostrar_resultados_finales(num_jugadores, es_fest=False):
     # Preguntar por nueva partida usando botones
     return preguntar_reinicio_con_botones()
 
+
 def main():
     """Función principal del juego"""
     global puntuacion_p1, puntuacion_p2, ronda_actual, juego_activo
@@ -443,11 +442,11 @@ def main():
     
     print("Sistema de medición de reflejos inicializado")
     print("Configuración de pines:")
-    print("- LEDs: 26, 23, 22")
-    print("- Buzzer: 2")
-    print("- START: 17, STOP: 16, fest: 4")
-    print("- Jugador 1: 13, 12, 14, 27")
-    print("- Jugador 2: 21, 19, 18, 5")
+    print("- LEDs: 23, 22, 21")
+    print("- Buzzer: 19")
+    print("- START: 12, STOP: 13, fest: 16")
+    print("- Jugador 1: 25, 26, 27, 14")
+    print("- Jugador 2: 34, 35, 32, 33")
     
     while True:
         # Reiniciar variables
@@ -476,6 +475,7 @@ def main():
         
         # Esperar START
         while not boton_inicio.value():
+            # Permitir cambiar modo fest mientras se espera START
             time.sleep_ms(30)
         
         # Esperar que se suelte START
@@ -484,22 +484,61 @@ def main():
         
         # Iniciar juego según modo
         juego_activo = True
+        juego_interrumpido = False
         
         if modo_fest:
             print("\n¡MODO fest ACTIVADO!")
             resultado = jugar_modo_fest(num_jugadores)
-            if resultado:
-                jugar_de_nuevo = mostrar_resultados_finales(num_jugadores, True)
-            else:
-                jugar_de_nuevo = True
+            if not resultado:
+                juego_interrumpido = True
         else:
             print("\n¡MODO NORMAL!")
+            # Jugar rondas normales hasta que el juego sea detenido
             while juego_activo:
                 resultado, resp_p1, resp_p2 = jugar_ronda_normal(num_jugadores)
+                
                 if not resultado:
+                    # Juego fue interrumpido con STOP
+                    juego_interrumpido = True
                     juego_activo = False
+                    break
+                
+                # Pequeña pausa entre rondas
+                print("Preparándose para la siguiente ronda...")
+                time.sleep(1)
+        
+        # Preguntar si reiniciar en todos los casos
+        if juego_interrumpido:
+            print("\nJuego interrumpido")
+        
+        print("¿Jugar de nuevo?")
+        print("Presiona START para SÍ")
+        print("Presiona STOP para NO")
+        
+        # LIMPIAR EL ESTADO DE LOS BOTONES ANTES DE ESPERAR RESPUESTA
+        time.sleep(0.5)  # Pequeña pausa para asegurar
+        # Leer y descartar cualquier estado previo de botones
+        while boton_inicio.value() or boton_fin.value():
+            time.sleep_ms(10)
+        
+        # Esperar respuesta del usuario (sin estado previo)
+        jugar_de_nuevo = None
+        while jugar_de_nuevo is None:
+            if boton_inicio.value():
+                # Esperar a que se suelte el botón
+                while boton_inicio.value():
+                    time.sleep_ms(10)
+                jugar_de_nuevo = True
+                print("START presionado - Jugando de nuevo")
+                
+            elif boton_fin.value():
+                # Esperar a que se suelte el botón
+                while boton_fin.value():
+                    time.sleep_ms(10)
+                jugar_de_nuevo = False
+                print("STOP presionado - Finalizando juego")
             
-            jugar_de_nuevo = mostrar_resultados_finales(num_jugadores, False)
+            time.sleep_ms(50)
         
         if not jugar_de_nuevo:
             print("¡Gracias por jugar!")
@@ -507,7 +546,6 @@ def main():
         
         print("Reiniciando juego...")
         time.sleep(1)
-
-# Ejecutar el juego directamente sin verificar _name_
+# Ejecutar el juego directamente sin verificar name
 # Esto soluciona el problema en MicroPython
 main()
